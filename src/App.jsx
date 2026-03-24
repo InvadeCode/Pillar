@@ -190,7 +190,7 @@ const HeroImageReveal = ({ src, alt, className = '' }) => {
 const RevealText = ({ text, className = '', delay = 0 }) => {
   const [ref, isVisible] = useOnScreen();
   return (
-    <div ref={ref} className={`overflow-hidden ${className}`}>
+    <div ref={ref} className={`overflow-hidden ${className}`} style={{ paddingBottom: '0.2em', marginBottom: '-0.2em' }}>
       <div 
         className={`transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-[100%] opacity-0'}`}
         style={{ transitionDelay: `${delay}ms` }}
@@ -1291,8 +1291,8 @@ export default function App() {
         <CustomCursor />
 
         {/* Minimal Header with Uniform Padding Container */}
-        <header className={`fixed w-full z-50 transition-all duration-700 ease-out px-[3%] ${scrolled ? 'py-2 md:py-4 bg-white/95 backdrop-blur-sm shadow-sm' : 'py-4 md:py-6'}`}>
-          <div className="w-full max-w-[1600px] mx-auto flex justify-between items-center">
+        <header className={`fixed w-full z-50 transition-all duration-700 ease-out px-[3%] md:px-6 lg:px-8 ${scrolled ? 'py-2 md:py-4 bg-white/95 backdrop-blur-sm shadow-sm' : 'py-4 md:py-6'}`}>
+          <div className="w-full mx-auto flex justify-between items-center">
             
             {/* Logo */}
             <div className="flex items-center z-10">
