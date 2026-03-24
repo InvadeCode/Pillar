@@ -95,11 +95,11 @@ const CustomCursor = () => {
   return (
     <div 
       id="custom-cursor"
-      className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[100] mix-blend-difference flex items-center justify-center transition-transform duration-300 ease-out"
+      className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[100] mix-blend-difference flex items-center justify-center transition-transform duration-150 ease-out"
       style={{ transform: `translate(${position.x - 16}px, ${position.y - 16}px)` }}
     >
       <div 
-        className={`bg-white rounded-full transition-all duration-300 ${
+        className={`bg-white rounded-full transition-all duration-150 ${
           isHovering ? 'w-16 h-16 opacity-100' : (isClicking ? 'w-2 h-2 opacity-50' : 'w-4 h-4 opacity-100')
         }`}
       />
