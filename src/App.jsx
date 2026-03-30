@@ -3,8 +3,8 @@ import {
   Menu, X, ArrowRight, MapPin, Phone, Mail, ArrowUpRight, Instagram, Linkedin, Plus, Minus, Play
 } from 'lucide-react';
 
-// --- CONTEXT FOR CUSTOM CURSOR ---
-const CursorContext = createContext();
+// --- CONTEXT FOR GLOBAL APP STATE ---
+const AppContext = createContext();
 
 // --- CUSTOM CSS (Injected) ---
 const ultraModernStyles = `
@@ -16,9 +16,13 @@ const ultraModernStyles = `
   }
   
   html, body {
-    cursor: none; /* Hide default cursor for desktop */
     scroll-behavior: smooth;
     font-family: 'Urbanist', sans-serif;
+  }
+
+  /* Only hide default cursor on desktop */
+  @media (min-width: 769px) {
+    html, body { cursor: none; }
   }
 
   /* Clip Path Unveil Animation */
@@ -38,15 +42,10 @@ const ultraModernStyles = `
   ::-webkit-scrollbar-thumb { background: #e4e4e7; }
   ::-webkit-scrollbar-thumb:hover { background: #d4d4d8; }
 
-  @media (max-width: 768px) {
-    html, body { cursor: auto; }
-    #custom-cursor { display: none !important; }
-  }
-
   /* Hollow Text Effect */
   .text-hollow {
     color: transparent;
-    -webkit-text-stroke: 1px #09090b; /* zinc-950 */
+    -webkit-text-stroke: 1px #09090b;
   }
   .text-hollow-white {
     color: transparent;
@@ -72,12 +71,25 @@ const ultraModernStyles = `
 // --- INTERACTIVE COMPONENTS ---
 
 const CustomCursor = () => {
-  const { isHovering } = useContext(CursorContext);
-  const [position, setPosition] = useState({ x: -100, y: -100 });
+  const { isHovering } = useContext(AppContext);
+  const cursorRef = useRef(null);
+  const [isDesktop, setIsDesktop] = useState(true);
   const [isClicking, setIsClicking] = useState(false);
 
   useEffect(() => {
-    const updatePosition = (e) => setPosition({ x: e.clientX, y: e.clientY });
+    // Disable custom cursor logic entirely on mobile to prevent performance issues
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setIsDesktop(false);
+      return;
+    }
+
+    const updatePosition = (e) => {
+      if (cursorRef.current) {
+        // Direct DOM manipulation for zero latency movement
+        cursorRef.current.style.transform = `translate(${e.clientX - 16}px, ${e.clientY - 16}px)`;
+      }
+    };
+    
     const handleMouseDown = () => setIsClicking(true);
     const handleMouseUp = () => setIsClicking(false);
 
@@ -92,14 +104,16 @@ const CustomCursor = () => {
     };
   }, []);
 
+  if (!isDesktop) return null;
+
   return (
     <div 
-      id="custom-cursor"
-      className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[100] mix-blend-difference flex items-center justify-center transition-transform duration-150 ease-out"
-      style={{ transform: `translate(${position.x - 16}px, ${position.y - 16}px)` }}
+      ref={cursorRef}
+      className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-[200] mix-blend-difference flex items-center justify-center"
+      style={{ willChange: 'transform' }} // Optimize for fast movement
     >
       <div 
-        className={`bg-white rounded-full transition-all duration-150 ${
+        className={`bg-white rounded-full transition-all duration-300 ease-out ${
           isHovering ? 'w-16 h-16 opacity-100' : (isClicking ? 'w-2 h-2 opacity-50' : 'w-4 h-4 opacity-100')
         }`}
       />
@@ -108,7 +122,7 @@ const CustomCursor = () => {
 };
 
 const Interactive = ({ children, className = '', onClick }) => {
-  const { setIsHovering } = useContext(CursorContext);
+  const { setIsHovering } = useContext(AppContext);
   return (
     <div 
       className={className}
@@ -170,23 +184,6 @@ const UnveilVideo = ({ src, className = '' }) => {
   );
 };
 
-const HeroImageReveal = ({ src, alt, className = '' }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoaded(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
-  return (
-    <div className={`overflow-hidden relative ${className}`}>
-      <img 
-        src={src} 
-        alt={alt} 
-        className={`w-full h-full object-cover clip-transition ${isLoaded ? 'clip-visible scale-100' : 'clip-hidden scale-110'} transition-transform duration-[2s] ease-out`}
-      />
-    </div>
-  );
-};
-
 const RevealText = ({ text, className = '', delay = 0 }) => {
   const [ref, isVisible] = useOnScreen();
   return (
@@ -236,34 +233,61 @@ const Section = ({ children, className = '', innerClassName = '', noVerticalPadd
 
 // --- DUMMY CMS DATA ---
 const projectsData = [
-  { id: 1, title: 'Hobsonville Col.', location: 'Auckland', status: 'Completed', image: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' },
-  { id: 2, title: 'Epsom Arch.', location: 'Auckland', status: 'Completed', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' },
-  { id: 3, title: 'Peninsula Terraces', location: 'Te Atatu', status: 'Selling Now', image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' }
+  { 
+    id: 1, 
+    title: 'Hobsonville Col.', 
+    location: 'Auckland', 
+    status: 'Completed', 
+    price: 'From $1,250,000',
+    specs: '4 Bed • 3 Bath • 2 Car',
+    description: 'A masterclass in modern medium-density living. This collection of premium terraced homes integrates sophisticated sustainable features with uncompromising aesthetic standards. Designed to maximize natural light and ensure privacy, each residence offers seamless indoor-outdoor flow perfect for the Auckland lifestyle.',
+    image: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' 
+  },
+  { 
+    id: 2, 
+    title: 'Epsom Arch.', 
+    location: 'Auckland', 
+    status: 'Completed', 
+    price: 'From $3,100,000',
+    specs: '5 Bed • 4 Bath • 3 Car',
+    description: 'An award-winning luxury standalone residence that redefined its neighborhood. Featuring double-height voids, poured concrete thermal mass flooring, and bespoke timber joinery. The project required meticulous resource consent management and was delivered flawlessly within a strict 12-month timeframe.',
+    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' 
+  },
+  { 
+    id: 3, 
+    title: 'Peninsula Terraces', 
+    location: 'Te Atatu', 
+    status: 'Selling Now', 
+    price: 'From $950,000',
+    specs: '3 Bed • 2 Bath • 1 Car',
+    description: 'Bringing high-end architectural principles to an accessible market point. Peninsula Terraces offers striking street appeal with its dark corrugated profile and timber accents. Designed heavily around community and shared green spaces while maintaining distinct private courtyards for every home.',
+    image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80' 
+  }
 ];
 
 const servicesData = [
   { 
     title: 'Development', 
     desc: 'From identifying great locations to thoughtfully planned residential communities. Full lifecycle management.', 
-    image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    image: 'https://images.unsplash.com/photo-1613490908677-62a26500ac13?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     features: ['Site Acquisition', 'Feasibility Studies', 'Resource Consents', 'Community Planning']
   },
   { 
     title: 'Construction', 
     desc: 'Reliable, high-quality construction with absolute attention to detail, timelines, and cost control.', 
-    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    image: 'https://images.unsplash.com/photo-1541888086925-0c13bb4229f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     features: ['Fixed-Price Contracts', 'Rigorous Quality Assurance', 'Timely Execution', 'Health & Safety Compliance']
   },
   { 
     title: 'Custom Homes', 
     desc: 'Standalone homes tailored to modern lifestyles, combining smart architectural design with long-term value.', 
-    image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    image: 'https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     features: ['Bespoke Architectural Design', 'Premium Material Sourcing', 'Interior Design Consulting', 'Turnkey Solutions']
   },
   { 
     title: 'Project Management', 
     desc: 'From planning to subdivision, compliance, and completion, we handle every stage of the journey.', 
-    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+    image: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
     features: ['Timeline Management', 'Budget Control', 'Contractor Coordination', 'Final Certification']
   }
 ];
@@ -308,9 +332,12 @@ const awardsData = [
 ];
 
 const insightsData = [
-  { category: 'Architecture', date: 'March 2026', title: 'The Rise of Minimalist Concrete in Auckland Homes' },
-  { category: 'Market Update', date: 'February 2026', title: 'Navigating Resource Consents for Multi-Unit Builds' },
-  { category: 'Sustainability', date: 'January 2026', title: 'Integrating Passive Heating into Luxury Designs' }
+  { category: 'Architecture', date: 'March 2026', title: 'The Rise of Minimalist Concrete in Auckland Homes', image: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { category: 'Market Update', date: 'February 2026', title: 'Navigating Resource Consents for Multi-Unit Builds', image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { category: 'Sustainability', date: 'January 2026', title: 'Integrating Passive Heating into Luxury Designs', image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { category: 'Design', date: 'December 2025', title: 'Maximizing Natural Light in Terraced Housing', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { category: 'Community', date: 'November 2025', title: 'Pillar Properties Sponsors Local Architecture Scholarship', image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { category: 'Investment', date: 'October 2025', title: 'Why Te Atatu is Auckland’s Next Growth Suburb', image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }
 ];
 
 const futureProjectsData = [
@@ -326,23 +353,18 @@ const signatureDetails = [
 ];
 
 const galleryData = [
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1613490908677-62a26500ac13?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1541888086925-0c13bb4229f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1556910103-1c02745aae4d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600585154363-67eb9e2e2099?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1576013551627-c0208f3216fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1600607686527-6fb886090705?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1613490908677-62a26500ac13?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1541888086925-0c13bb4229f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1556910103-1c02745aae4d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1600585154363-67eb9e2e2099?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
 ];
 
 // Marquee Text Loop
@@ -394,7 +416,8 @@ Keep the tone ultra-premium, confident, and concise. Use simple plain text with 
 
 // --- PAGES ---
 
-const HomePage = ({ navigate }) => {
+const HomePage = () => {
+  const { navigate, setSelectedProject } = useContext(AppContext);
   const [hoveredProject, setHoveredProject] = useState(projectsData[0].image);
   const [activeDetail, setActiveDetail] = useState(0);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
@@ -537,7 +560,7 @@ const HomePage = ({ navigate }) => {
       {/* Interactive Project Roster */}
       <Section className="bg-zinc-950 text-white relative" innerClassName="relative z-10">
         <div className="mb-20 flex justify-between items-end">
-          <RevealText text="SELECTED WORKS" className="text-xs tracking-[0.3em] uppercase text-zinc-500 font-semibold" />
+          <RevealText text="OUR DEVELOPMENT" className="text-xs tracking-[0.3em] uppercase text-zinc-500 font-semibold" />
           <Interactive onClick={() => navigate('projects')} className="hidden md:flex items-center gap-2 cursor-pointer text-zinc-400 hover:text-white transition-colors">
             <span className="text-xs tracking-[0.2em] uppercase font-semibold">View Full Portfolio</span>
           </Interactive>
@@ -545,7 +568,7 @@ const HomePage = ({ navigate }) => {
 
         <div className="border-t border-zinc-800">
           {projectsData.map((project, idx) => (
-            <Interactive key={project.id} onClick={() => navigate('projects')}>
+            <Interactive key={project.id} onClick={() => setSelectedProject(project)}>
               <div 
                 className="group flex flex-col md:flex-row justify-between items-start md:items-center py-10 md:py-16 border-b border-zinc-800 cursor-pointer relative"
                 onMouseEnter={() => setHoveredProject(project.image)}
@@ -657,13 +680,13 @@ const HomePage = ({ navigate }) => {
       <Section className="bg-zinc-50 border-t border-zinc-200">
         <div className="flex justify-between items-end mb-20">
           <RevealText text="JOURNAL & INSIGHTS" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold" />
-          <Interactive className="hidden md:flex items-center gap-2 cursor-pointer text-zinc-950 hover:opacity-50 transition-opacity">
+          <Interactive onClick={() => navigate('blog')} className="hidden md:flex items-center gap-2 cursor-pointer text-zinc-950 hover:opacity-50 transition-opacity">
             <span className="text-xs tracking-[0.2em] uppercase font-semibold">Read All</span>
           </Interactive>
         </div>
         <div className="grid md:grid-cols-3 gap-12">
-          {insightsData.map((insight, idx) => (
-            <Interactive key={idx} className="group cursor-pointer border-t border-zinc-200 pt-8">
+          {insightsData.slice(0,3).map((insight, idx) => (
+            <Interactive key={idx} onClick={() => navigate('blog')} className="group cursor-pointer border-t border-zinc-200 pt-8">
               <div className="flex justify-between items-center mb-6">
                 <RevealText text={insight.category} delay={idx * 100} className="text-[10px] tracking-widest uppercase font-semibold text-zinc-400" />
                 <RevealText text={insight.date} delay={idx * 100 + 50} className="text-[10px] tracking-widest uppercase font-semibold text-zinc-400" />
@@ -701,116 +724,118 @@ const HomePage = ({ navigate }) => {
   );
 };
 
-const AboutPage = () => (
-  <div className="animate-in fade-in duration-1000 bg-white min-h-screen pt-32 md:pt-48 pb-32">
-    <Section noVerticalPadding>
-      <RevealText text="OUR STORY" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
-      <RevealText text="Building foundations" className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950" />
-      <RevealText text="for the future." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-24" delay={100} />
+const AboutPage = () => {
+  const { navigate } = useContext(AppContext);
+  return (
+    <div className="animate-in fade-in duration-1000 bg-white min-h-screen pt-32 md:pt-48 pb-32">
+      <Section noVerticalPadding>
+        <RevealText text="OUR STORY" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
+        <RevealText text="Building foundations" className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950" />
+        <RevealText text="for the future." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-24" delay={100} />
 
-      <div className="grid lg:grid-cols-2 gap-16 items-start mb-32">
-        <div>
-          <RevealText text="Pillar Properties Ltd is a premier residential development and construction company based in the heart of Auckland." className="text-2xl font-light text-zinc-950 leading-relaxed mb-8" />
-          <RevealText text="While our brand name is new to the market, the foundation of our company is built on extensive industry experience. For over seven years, our dedicated team has been instrumental in delivering more than 600 homes across the region." className="text-lg text-zinc-500 font-light leading-relaxed mb-8" delay={100} />
-          <RevealText text="We don't just build houses; we design, develop, build, and manage high-quality homes that cater to modern lifestyles. Our core philosophy ensures that every project we undertake is functional, aesthetically pleasing, and above all, affordable without compromising on the premium feel." className="text-lg text-zinc-500 font-light leading-relaxed" delay={200} />
-        </div>
-        <div className="w-full h-[400px] md:h-[600px] rounded-3xl overflow-hidden shadow-sm">
-          <UnveilImage src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Architectural Structure" className="w-full h-full object-cover" />
-        </div>
-      </div>
-
-      <RevealText text="CORE PHILOSOPHY" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
-      <div className="grid md:grid-cols-3 gap-12 border-t border-zinc-200 pt-16">
-        {valuesData.map((val, idx) => (
-          <div key={idx}>
-            <RevealText text={val.num} className="text-4xl font-thin text-zinc-300 mb-6" />
-            <RevealText text={val.title} className="text-2xl font-light text-zinc-950 mb-4" />
-            <RevealText text={val.desc} className="text-zinc-500 font-light leading-relaxed" />
+        <div className="grid lg:grid-cols-2 gap-16 items-start mb-32">
+          <div>
+            <RevealText text="Pillar Properties Ltd is a premier residential development and construction company based in the heart of Auckland." className="text-2xl font-light text-zinc-950 leading-relaxed mb-8" />
+            <RevealText text="While our brand name is new to the market, the foundation of our company is built on extensive industry experience. For over seven years, our dedicated team has been instrumental in delivering more than 600 homes across the region." className="text-lg text-zinc-500 font-light leading-relaxed mb-8" delay={100} />
+            <RevealText text="We don't just build houses; we design, develop, build, and manage high-quality homes that cater to modern lifestyles. Our core philosophy ensures that every project we undertake is functional, aesthetically pleasing, and above all, affordable without compromising on the premium feel." className="text-lg text-zinc-500 font-light leading-relaxed" delay={200} />
           </div>
-        ))}
-      </div>
+          <div className="w-full h-[400px] md:h-[600px] rounded-3xl overflow-hidden shadow-sm">
+            <UnveilImage src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Architectural Structure" className="w-full h-full object-cover" />
+          </div>
+        </div>
 
-      <div className="mt-40">
-        <RevealText text="LEADERSHIP" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+        <RevealText text="CORE PHILOSOPHY" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
         <div className="grid md:grid-cols-3 gap-12 border-t border-zinc-200 pt-16">
-          {teamData.map((member, idx) => (
-            <Interactive key={idx} className="group">
-              <div className="w-full aspect-[3/4] overflow-hidden mb-6 bg-zinc-100 rounded-3xl shadow-sm">
-                <img src={member.image} alt={member.name} className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-out" />
+          {valuesData.map((val, idx) => (
+            <div key={idx}>
+              <RevealText text={val.num} className="text-4xl font-thin text-zinc-300 mb-6" />
+              <RevealText text={val.title} className="text-2xl font-light text-zinc-950 mb-4" />
+              <RevealText text={val.desc} className="text-zinc-500 font-light leading-relaxed" />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-40">
+          <RevealText text="RECOGNITION" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+          <div className="grid md:grid-cols-3 gap-8 border-t border-zinc-200 pt-16">
+            {awardsData.map((award, idx) => (
+              <div key={idx} className="bg-[#fafafa] p-8 md:p-12 rounded-3xl border border-zinc-100 hover:border-zinc-300 transition-colors duration-500">
+                <RevealText text={award.year} className="text-xs tracking-[0.2em] uppercase text-zinc-400 font-semibold mb-6" />
+                <RevealText text={award.title} className="text-xl md:text-2xl font-light text-zinc-950 mb-4" />
+                <RevealText text={award.category} className="text-sm text-zinc-500 font-light" />
               </div>
-              <RevealText text={member.name} className="text-2xl font-light text-zinc-950 mb-1" />
-              <RevealText text={member.role} className="text-xs tracking-widest uppercase text-zinc-400 font-semibold" delay={100} />
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-40">
+          <RevealText text="LEADERSHIP" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+          <div className="grid md:grid-cols-3 gap-12 border-t border-zinc-200 pt-16">
+            {teamData.map((member, idx) => (
+              <Interactive key={idx} className="group">
+                <div className="w-full aspect-[3/4] overflow-hidden mb-6 bg-zinc-100 rounded-3xl shadow-sm">
+                  <img src={member.image} alt={member.name} className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-out" />
+                </div>
+                <RevealText text={member.name} className="text-2xl font-light text-zinc-950 mb-1" />
+                <RevealText text={member.role} className="text-xs tracking-widest uppercase text-zinc-400 font-semibold" delay={100} />
+              </Interactive>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-40">
+          <RevealText text="MILESTONES" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+          <div className="border-t border-zinc-200 pt-16 space-y-16">
+            {milestonesData.map((milestone, idx) => (
+              <div key={idx} className="grid md:grid-cols-4 gap-8 md:gap-12 items-start group">
+                <RevealText text={milestone.year} className="text-4xl md:text-5xl font-thin text-zinc-300 group-hover:text-zinc-950 transition-colors duration-500" />
+                <div className="md:col-span-3 border-l border-zinc-200 pl-8 md:pl-12">
+                  <RevealText text={milestone.title} className="text-2xl font-light text-zinc-950 mb-4" />
+                  <RevealText text={milestone.desc} className="text-zinc-500 font-light leading-relaxed max-w-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </Section>
+
+      <Section className="bg-zinc-50 border-t border-zinc-200 mt-32 md:mt-40">
+        <div className="flex justify-between items-end mb-20">
+          <RevealText text="JOURNAL & INSIGHTS" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold" />
+          <Interactive onClick={() => navigate('blog')} className="hidden md:flex items-center gap-2 cursor-pointer text-zinc-950 hover:opacity-50 transition-opacity">
+            <span className="text-xs tracking-[0.2em] uppercase font-semibold">Explore Blog</span>
+          </Interactive>
+        </div>
+        <div className="grid md:grid-cols-3 gap-12">
+          {insightsData.slice(0,3).map((insight, idx) => (
+            <Interactive key={idx} onClick={() => navigate('blog')} className="group cursor-pointer border-t border-zinc-200 pt-8">
+              <div className="flex justify-between items-center mb-6">
+                <RevealText text={insight.category} delay={idx * 100} className="text-[10px] tracking-widest uppercase font-semibold text-zinc-400" />
+                <RevealText text={insight.date} delay={idx * 100 + 50} className="text-[10px] tracking-widest uppercase font-semibold text-zinc-400" />
+              </div>
+              <RevealText text={insight.title} delay={idx * 100 + 100} className="text-2xl font-light text-zinc-950 group-hover:text-zinc-500 transition-colors duration-500 pr-8" />
             </Interactive>
           ))}
         </div>
-      </div>
+      </Section>
 
-      <div className="mt-40">
-        <RevealText text="MILESTONES" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
-        <div className="border-t border-zinc-200 pt-16 space-y-16">
-          {milestonesData.map((milestone, idx) => (
-            <div key={idx} className="grid md:grid-cols-4 gap-8 md:gap-12 items-start group">
-              <RevealText text={milestone.year} className="text-4xl md:text-5xl font-thin text-zinc-300 group-hover:text-zinc-950 transition-colors duration-500" />
-              <div className="md:col-span-3 border-l border-zinc-200 pl-8 md:pl-12">
-                <RevealText text={milestone.title} className="text-2xl font-light text-zinc-950 mb-4" />
-                <RevealText text={milestone.desc} className="text-zinc-500 font-light leading-relaxed max-w-2xl" />
-              </div>
-            </div>
-          ))}
+      {/* NEW: Culture & Community */}
+      <Section className="bg-white">
+        <RevealText text="CULTURE" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div className="order-2 md:order-1 h-[400px] md:h-[500px] rounded-3xl overflow-hidden shadow-sm">
+             <UnveilImage src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Team Culture" className="w-full h-full object-cover" />
+          </div>
+          <div className="order-1 md:order-2">
+            <RevealText text="Beyond the blueprint." className="text-4xl md:text-6xl font-light tracking-tight text-zinc-950 mb-8" />
+            <RevealText text="We foster a collaborative environment where architects, project managers, and builders work side-by-side. Our commitment extends to the local Auckland community through active sponsorship of sustainable design initiatives and youth trade apprenticeships." className="text-lg text-zinc-500 font-light leading-relaxed" />
+          </div>
         </div>
-      </div>
-
-      <div className="mt-40">
-        <RevealText text="RECOGNITION" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
-        <div className="grid md:grid-cols-3 gap-8 border-t border-zinc-200 pt-16">
-          {awardsData.map((award, idx) => (
-            <div key={idx} className="bg-[#fafafa] p-8 md:p-12 rounded-3xl border border-zinc-100 hover:border-zinc-300 transition-colors duration-500">
-              <RevealText text={award.year} className="text-xs tracking-[0.2em] uppercase text-zinc-400 font-semibold mb-6" />
-              <RevealText text={award.title} className="text-xl md:text-2xl font-light text-zinc-950 mb-4" />
-              <RevealText text={award.category} className="text-sm text-zinc-500 font-light" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </Section>
-
-    <Section className="bg-zinc-950 text-white mt-32 md:mt-40 rounded-[2rem] md:rounded-[3rem] shadow-xl mx-4 md:mx-12 lg:mx-16" innerClassName="flex flex-col md:flex-row gap-16 items-center">
-      <div className="w-full md:w-1/2">
-        <RevealText text="SUSTAINABILITY" className="text-xs tracking-[0.3em] uppercase text-zinc-500 font-semibold mb-8" />
-        <RevealText text="Building for the next century." className="text-4xl md:text-6xl font-light tracking-tight mb-8 text-zinc-200" />
-        <RevealText text="Our commitment extends beyond aesthetics. We integrate passive heating, solar readiness, and ethically sourced timber into our standard specifications, ensuring a minimal footprint and maximum efficiency." className="text-lg text-zinc-400 font-light leading-relaxed mb-8" delay={100} />
-      </div>
-      <div className="w-full md:w-1/2 h-[400px] rounded-3xl overflow-hidden">
-          <UnveilImage src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Sustainable details" className="w-full h-full object-cover opacity-80" />
-      </div>
-    </Section>
-
-    {/* NEW: Culture & Community */}
-    <Section className="bg-white mt-32 md:mt-40">
-      <RevealText text="CULTURE" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
-      <div className="grid md:grid-cols-2 gap-16 items-center">
-        <div className="order-2 md:order-1 h-[400px] md:h-[500px] rounded-3xl overflow-hidden shadow-sm">
-           <UnveilImage src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="Team Culture" className="w-full h-full object-cover" />
-        </div>
-        <div className="order-1 md:order-2">
-          <RevealText text="Beyond the blueprint." className="text-4xl md:text-6xl font-light tracking-tight text-zinc-950 mb-8" />
-          <RevealText text="We foster a collaborative environment where architects, project managers, and builders work side-by-side. Our commitment extends to the local Auckland community through active sponsorship of sustainable design initiatives and youth trade apprenticeships." className="text-lg text-zinc-500 font-light leading-relaxed" />
-        </div>
-      </div>
-    </Section>
-
-    <Section className="bg-[#fafafa] border-t border-zinc-200 mt-32 md:mt-40 text-center" innerClassName="flex flex-col items-center">
-        <RevealText text="CAREERS" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
-        <RevealText text="Build with us." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-8" />
-        <RevealText text="We are always looking for visionary architects, rigorous project managers, and master builders to join our growing team." className="text-xl text-zinc-500 font-light max-w-2xl leading-relaxed mb-12" delay={100} />
-        <Interactive>
-          <button className="bg-zinc-950 text-white px-8 py-4 text-xs tracking-[0.2em] uppercase font-semibold rounded-full hover:bg-zinc-800 transition-colors flex items-center gap-2">
-            View Open Positions <ArrowRight className="w-4 h-4" />
-          </button>
-        </Interactive>
-    </Section>
-  </div>
-);
+      </Section>
+    </div>
+  );
+}
 
 const ServicesPage = () => (
   <div className="animate-in fade-in duration-1000 bg-[#fafafa] min-h-screen pt-32 md:pt-48 pb-32">
@@ -902,68 +927,71 @@ const ServicesPage = () => (
   </div>
 );
 
-const ProjectsPage = () => (
-  <div className="animate-in fade-in duration-1000 bg-[#fafafa] min-h-screen pt-32 md:pt-48 pb-32">
-    <Section noVerticalPadding>
-      <RevealText text="PORTFOLIO" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
-      <RevealText text="Selected Works." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-24" />
+const ProjectsPage = () => {
+  const { setSelectedProject } = useContext(AppContext);
+  return (
+    <div className="animate-in fade-in duration-1000 bg-[#fafafa] min-h-screen pt-32 md:pt-48 pb-32">
+      <Section noVerticalPadding>
+        <RevealText text="PORTFOLIO" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
+        <RevealText text="Selected Works." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-24" />
 
-      <div className="grid md:grid-cols-2 gap-x-12 gap-y-24">
-        {projectsData.map((project, idx) => (
-          <Interactive key={project.id} className="group cursor-pointer">
-            <div className={`w-full ${idx % 2 === 1 ? 'md:mt-32' : ''}`}>
-              <UnveilImage src={project.image} alt={project.title} className="w-full aspect-[4/5] md:aspect-[3/4] mb-8 rounded-3xl shadow-sm" />
-              <div className="flex justify-between items-start border-t border-zinc-200 pt-6">
-                <div>
-                  <h3 className="text-2xl font-light text-zinc-950 mb-2">{project.title}</h3>
-                  <p className="text-zinc-500 text-sm">{project.location}</p>
+        <div className="grid md:grid-cols-2 gap-x-12 gap-y-24">
+          {projectsData.map((project, idx) => (
+            <Interactive key={project.id} onClick={() => setSelectedProject(project)} className="group cursor-pointer">
+              <div className={`w-full ${idx % 2 === 1 ? 'md:mt-32' : ''}`}>
+                <UnveilImage src={project.image} alt={project.title} className="w-full aspect-[4/3] mb-8 rounded-3xl shadow-sm" />
+                <div className="flex justify-between items-start border-t border-zinc-200 pt-6">
+                  <div>
+                    <h3 className="text-2xl font-light text-zinc-950 mb-2">{project.title}</h3>
+                    <p className="text-zinc-500 text-sm">{project.location}</p>
+                  </div>
+                  <span className="text-xs tracking-widest uppercase text-zinc-400 font-semibold">{project.status}</span>
                 </div>
-                <span className="text-xs tracking-widest uppercase text-zinc-400 font-semibold">{project.status}</span>
               </div>
-            </div>
-          </Interactive>
-        ))}
-      </div>
-
-      <div className="mt-40 pt-32 border-t border-zinc-200">
-        <RevealText text="ON THE HORIZON" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
-        <RevealText text="Future Developments." className="text-4xl md:text-6xl font-light tracking-tight text-zinc-950 mb-16" />
-        
-        <div className="flex flex-col">
-          {futureProjectsData.map((proj, idx) => (
-            <div key={idx} className="group flex flex-col md:flex-row justify-between items-start md:items-center py-8 border-b border-zinc-200 hover:bg-zinc-50 transition-colors px-4 -mx-4 cursor-default">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-12 w-full">
-                <RevealText text={proj.title} delay={idx * 50} className="text-2xl md:text-3xl font-light text-zinc-950" />
-                <RevealText text={proj.location} delay={idx * 50 + 50} className="text-sm tracking-widest uppercase text-zinc-500 font-semibold" />
-              </div>
-              <div className="mt-4 md:mt-0 flex-shrink-0">
-                <RevealText text={`Expected ${proj.expected}`} delay={idx * 50 + 100} className="text-xs tracking-[0.2em] uppercase text-zinc-400 font-semibold bg-white border border-zinc-200 px-4 py-2 rounded-full" />
-              </div>
-            </div>
+            </Interactive>
           ))}
         </div>
-      </div>
 
-      {/* NEW: Project Statistics / Impact */}
-      <div className="mt-40 pt-32 border-t border-zinc-200">
-         <RevealText text="OUR IMPACT" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
-         <div className="grid md:grid-cols-4 gap-12 bg-zinc-950 rounded-3xl p-12 lg:p-16 text-white shadow-xl">
-            {[
-              { val: '$200M+', label: 'Gross Development Value' },
-              { val: '600+', label: 'Dwellings Completed' },
-              { val: '12', label: 'Suburbs Transformed' },
-              { val: '100%', label: 'Delivery Rate' }
-            ].map((stat, idx) => (
-              <div key={idx} className="flex flex-col">
-                <RevealText text={stat.val} delay={idx * 100} className="text-4xl md:text-5xl lg:text-6xl font-light text-zinc-200 mb-4" />
-                <RevealText text={stat.label} delay={idx * 100 + 50} className="text-[10px] md:text-xs tracking-[0.2em] uppercase text-zinc-500 font-semibold" />
+        <div className="mt-40 pt-32 border-t border-zinc-200">
+          <RevealText text="ON THE HORIZON" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+          <RevealText text="Future Developments." className="text-4xl md:text-6xl font-light tracking-tight text-zinc-950 mb-16" />
+          
+          <div className="flex flex-col">
+            {futureProjectsData.map((proj, idx) => (
+              <div key={idx} className="group flex flex-col md:flex-row justify-between items-start md:items-center py-8 border-b border-zinc-200 hover:bg-zinc-50 transition-colors px-4 -mx-4 cursor-default">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-12 w-full">
+                  <RevealText text={proj.title} delay={idx * 50} className="text-2xl md:text-3xl font-light text-zinc-950" />
+                  <RevealText text={proj.location} delay={idx * 50 + 50} className="text-sm tracking-widest uppercase text-zinc-500 font-semibold" />
+                </div>
+                <div className="mt-4 md:mt-0 flex-shrink-0">
+                  <RevealText text={`Expected ${proj.expected}`} delay={idx * 50 + 100} className="text-xs tracking-[0.2em] uppercase text-zinc-400 font-semibold bg-white border border-zinc-200 px-4 py-2 rounded-full" />
+                </div>
               </div>
             ))}
-         </div>
-      </div>
-    </Section>
-  </div>
-);
+          </div>
+        </div>
+
+        {/* NEW: Project Statistics / Impact */}
+        <div className="mt-40 pt-32 border-t border-zinc-200">
+           <RevealText text="OUR IMPACT" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-16" />
+           <div className="grid md:grid-cols-4 gap-12 bg-zinc-950 rounded-3xl p-12 lg:p-16 text-white shadow-xl">
+              {[
+                { val: '$200M+', label: 'Gross Development Value' },
+                { val: '600+', label: 'Dwellings Completed' },
+                { val: '12', label: 'Suburbs Transformed' },
+                { val: '100%', label: 'Delivery Rate' }
+              ].map((stat, idx) => (
+                <div key={idx} className="flex flex-col">
+                  <RevealText text={stat.val} delay={idx * 100} className="text-4xl md:text-5xl lg:text-6xl font-light text-zinc-200 mb-4" />
+                  <RevealText text={stat.label} delay={idx * 100 + 50} className="text-[10px] md:text-xs tracking-[0.2em] uppercase text-zinc-500 font-semibold" />
+                </div>
+              ))}
+           </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
 
 const GalleryPage = () => (
   <div className="animate-in fade-in duration-1000 bg-[#fafafa] min-h-screen pt-32 md:pt-48 pb-32">
@@ -971,11 +999,12 @@ const GalleryPage = () => (
       <RevealText text="GALLERY" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-8" />
       <RevealText text="Visual Archive." className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-24" />
 
-      <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+      {/* Uniform Grid Gallery */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {galleryData.map((src, idx) => (
-          <Interactive key={idx} className="break-inside-avoid relative group overflow-hidden block rounded-2xl md:rounded-3xl bg-zinc-200 shadow-sm">
-            <UnveilImage src={src} alt={`Gallery Image ${idx + 1}`} className="w-full h-auto object-cover transition-transform duration-[2.5s] group-hover:scale-105 ease-[cubic-bezier(0.16,1,0.3,1)]" />
-            <div className="absolute inset-0 bg-zinc-950/0 group-hover:bg-zinc-950/30 transition-colors duration-500 flex items-center justify-center">
+          <Interactive key={idx} className="relative group overflow-hidden block rounded-2xl md:rounded-3xl bg-zinc-200 shadow-sm aspect-square">
+            <UnveilImage src={src} alt={`Gallery Image ${idx + 1}`} className="w-full h-full object-cover transition-transform duration-[2.5s] group-hover:scale-105 ease-[cubic-bezier(0.16,1,0.3,1)] absolute inset-0" />
+            <div className="absolute inset-0 bg-zinc-950/0 group-hover:bg-zinc-950/30 transition-colors duration-500 flex items-center justify-center z-10 pointer-events-none">
               <Plus className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-all duration-500 transform scale-50 group-hover:scale-100" strokeWidth={1} />
             </div>
           </Interactive>
@@ -996,6 +1025,42 @@ const GalleryPage = () => (
               </div>
            </div>
         </div>
+      </div>
+    </Section>
+  </div>
+);
+
+const BlogPage = () => (
+  <div className="animate-in fade-in duration-1000 bg-[#fafafa] min-h-screen pt-32 md:pt-48 pb-32">
+    <Section noVerticalPadding>
+      <div className="mb-20 md:mb-32">
+        <RevealText text="JOURNAL" className="text-xs tracking-[0.3em] uppercase text-zinc-400 font-semibold mb-6" />
+        <RevealText text="Insights & Updates." className="text-5xl md:text-7xl lg:text-[6vw] font-light tracking-tight text-zinc-950 leading-none" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16 md:gap-y-24">
+        {insightsData.map((post, idx) => (
+          <Interactive key={idx} className="group cursor-pointer">
+            <div className="w-full flex flex-col h-full">
+              <div className="w-full aspect-[4/3] md:aspect-[3/2] mb-8 rounded-3xl overflow-hidden shadow-sm bg-zinc-200 relative">
+                <img src={post.image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2.5s] ease-[cubic-bezier(0.16,1,0.3,1)]" />
+                <div className="absolute inset-0 bg-zinc-950/0 group-hover:bg-zinc-950/10 transition-colors duration-500 pointer-events-none"></div>
+              </div>
+              <div className="flex justify-between items-center mb-5 border-t border-zinc-200 pt-5">
+                <span className="text-[10px] tracking-widest uppercase font-semibold text-zinc-500">{post.category}</span>
+                <span className="text-[10px] tracking-widest uppercase font-semibold text-zinc-400">{post.date}</span>
+              </div>
+              <h3 className="text-2xl md:text-3xl font-light text-zinc-950 mb-6 group-hover:text-zinc-600 transition-colors duration-500 leading-snug">{post.title}</h3>
+              
+              <div className="mt-auto flex items-center gap-3 text-zinc-950 group-hover:text-zinc-500 transition-colors">
+                <span className="text-xs tracking-[0.2em] uppercase font-semibold">Read Article</span>
+                <div className="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center group-hover:border-zinc-400 transition-colors">
+                  <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform duration-500" />
+                </div>
+              </div>
+            </div>
+          </Interactive>
+        ))}
       </div>
     </Section>
   </div>
@@ -1253,6 +1318,65 @@ const ContactPage = () => {
   );
 };
 
+// --- PROJECT MODAL COMPONENT ---
+const ProjectModal = () => {
+  const { selectedProject, setSelectedProject } = useContext(AppContext);
+
+  if (!selectedProject) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-[#fafafa] flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-500 overflow-y-auto md:overflow-hidden">
+      <button 
+        onClick={() => setSelectedProject(null)} 
+        className="fixed top-6 right-6 md:absolute md:top-8 md:right-8 z-10 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-lg hover:bg-zinc-950 hover:text-white text-zinc-950 transition-all duration-300"
+      >
+        <X className="w-6 h-6" />
+      </button>
+      
+      <div className="w-full md:w-1/2 h-[50vh] md:h-full relative overflow-hidden">
+        <img src={selectedProject.image} alt={selectedProject.title} className="w-full h-full object-cover animate-in fade-in duration-1000" />
+        <div className="absolute inset-0 bg-zinc-950/10 pointer-events-none"></div>
+      </div>
+      
+      <div className="w-full md:w-1/2 p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-[#fafafa] md:overflow-y-auto">
+        <div className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-100 fill-mode-both">
+          <span className="text-xs tracking-[0.3em] uppercase text-zinc-500 font-semibold mb-4 block">Project Details / {selectedProject.status}</span>
+          <h2 className="text-5xl md:text-7xl font-light tracking-tight text-zinc-950 mb-6">{selectedProject.title}</h2>
+          
+          <div className="flex items-center gap-2 text-zinc-500 mb-12">
+            <MapPin className="w-4 h-4" />
+            <span className="text-lg font-light">{selectedProject.location}</span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-12 border-y border-zinc-200 py-10 mb-10">
+            <div>
+              <span className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 font-semibold mb-2">Pricing</span>
+              <span className="text-2xl font-light text-zinc-950">{selectedProject.price}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] tracking-[0.2em] uppercase text-zinc-400 font-semibold mb-2">Specifications</span>
+              <span className="text-lg font-light text-zinc-950">{selectedProject.specs}</span>
+            </div>
+          </div>
+          
+          <p className="text-xl text-zinc-500 font-light leading-relaxed mb-12">
+            {selectedProject.description}
+          </p>
+          
+          <Interactive>
+            <button 
+              onClick={() => setSelectedProject(null)} 
+              className="bg-zinc-950 text-white px-10 py-5 text-xs tracking-[0.2em] uppercase font-semibold rounded-full hover:bg-zinc-800 transition-colors self-start inline-flex items-center gap-2"
+            >
+              Close View
+            </button>
+          </Interactive>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // --- MAIN APP COMPONENT ---
 
@@ -1261,6 +1385,7 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -1282,13 +1407,14 @@ export default function App() {
     setIsMenuOpen(false);
   }, [currentPage]);
 
-  const navLinks = ['home', 'about', 'services', 'projects', 'gallery', 'contact'];
+  const navLinks = ['home', 'about', 'services', 'projects', 'gallery', 'blog', 'contact'];
 
   return (
-    <CursorContext.Provider value={{ isHovering, setIsHovering }}>
+    <AppContext.Provider value={{ isHovering, setIsHovering, navigate: setCurrentPage, selectedProject, setSelectedProject }}>
       <div className="min-h-screen flex flex-col font-sans text-zinc-950 selection:bg-zinc-950 selection:text-white bg-[#fafafa] overflow-x-hidden relative">
         
         <CustomCursor />
+        <ProjectModal />
 
         {/* Minimal Header with Uniform Padding Container */}
         <header className={`fixed w-full z-50 transition-all duration-700 ease-out px-[3%] md:px-6 lg:px-8 ${scrolled ? 'py-2 md:py-4 bg-white/95 backdrop-blur-sm shadow-sm' : 'py-4 md:py-6'}`}>
@@ -1300,7 +1426,7 @@ export default function App() {
                 <img 
                   src="https://static.wixstatic.com/media/548938_1509800225e542a4a2d4144aa68163e9~mv2.png" 
                   alt="Pillar Properties" 
-                  className={`w-auto cursor-pointer object-contain transition-all duration-700 ${scrolled ? 'h-6 md:h-7' : 'h-7 md:h-9'} ${!scrolled && currentPage === 'home' ? 'brightness-0 invert' : ''}`}
+                  className={`w-auto cursor-pointer object-contain transition-all duration-700 ${scrolled ? 'h-8 md:h-10' : 'h-10 md:h-12'} ${!scrolled && currentPage === 'home' ? 'brightness-0 invert' : ''}`}
                 />
               </Interactive>
             </div>
@@ -1364,11 +1490,12 @@ export default function App() {
 
         {/* Dynamic Page Rendering */}
         <main className="flex-grow z-10 bg-[#fafafa]">
-          {currentPage === 'home' && <HomePage navigate={setCurrentPage} />}
+          {currentPage === 'home' && <HomePage />}
           {currentPage === 'about' && <AboutPage />}
           {currentPage === 'services' && <ServicesPage />}
           {currentPage === 'projects' && <ProjectsPage />}
           {currentPage === 'gallery' && <GalleryPage />}
+          {currentPage === 'blog' && <BlogPage />}
           {currentPage === 'contact' && <ContactPage />}
         </main>
 
@@ -1425,6 +1552,6 @@ export default function App() {
         </footer>
 
       </div>
-    </CursorContext.Provider>
+    </AppContext.Provider>
   );
 }
